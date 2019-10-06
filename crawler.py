@@ -9,6 +9,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 import platform
 import re
+import datetime
 
 # set up driver path
 print("System platform :", platform.system())
@@ -34,11 +35,11 @@ class Crawler:
         self.__stuff_browser = webdriver.Chrome(executable_path=chrome_driver_executable_path, options=options)
 
     def quit(self):
-        self.__pages_browser.quit()
         self.__stuff_browser.quit()
+        self.__pages_browser.quit()
         print('Chrome instance shut down')
 
-    def get_builds(self, user_limit: int = 0, filename: str = 'results.xlsx'):
+    def get_builds(self, user_limit: int = 0, filename: str = 'results.xlsx', get_stats=True):
         users_url = '/fr/communaute/membres?page='
         page = 1
 
@@ -75,61 +76,61 @@ class Crawler:
         ws = wb.active
 
         ws.append(['name', 'url', 'views', 'items',
-                                  'points de vie',
-                                  'PA',
-                                  'PM',
-                                  'PO',
-                                  'initiative',
-                                  'invocation',
-                                  'prospection',
-                                  'critique',
-                                  'soin',
-                                  'vitalite',
-                                  'sagesse',
-                                  'force',
-                                  'intelligence',
-                                  'chance',
-                                  'agilite',
-                                  'puissance',
-                                  'fuite',
-                                  'esquive PA',
-                                  'esquive PM',
-                                  'pods',
-                                  'bouclier',
-                                  'niveau du stuff',
-                                  'tacle',
-                                  'retrait PA',
-                                  'retrait PM',
-                                  'dmg pieges',
-                                  'pui pieges',
-                                  'renvoi dmg',
-                                  'dmg neutre',
-                                  'dmg terre',
-                                  'dmg feu',
-                                  'dmg eau',
-                                  'dmg air',
-                                  'res neutre',
-                                  'res terre',
-                                  'res feu',
-                                  'res eau',
-                                  'res air',
-                                  'res% neutre',
-                                  'res% terre',
-                                  'res% feu',
-                                  'res% eau',
-                                  'res% air',
-                                  'dmg melee',
-                                  'dmg distance',
-                                  'dmg armes',
-                                  'dmg sorts',
-                                  'dmg critique',
-                                  'dmg poussee',
-                                  'res melee',
-                                  'res distance',
-                                  'res armes',
-                                  'res sorts',
-                                  'res critiques',
-                                  'res poussee'])
+                   'points de vie',
+                   'PA',
+                   'PM',
+                   'PO',
+                   'initiative',
+                   'invocation',
+                   'prospection',
+                   'critique',
+                   'soin',
+                   'vitalite',
+                   'sagesse',
+                   'force',
+                   'intelligence',
+                   'chance',
+                   'agilite',
+                   'puissance',
+                   'fuite',
+                   'esquive PA',
+                   'esquive PM',
+                   'pods',
+                   'bouclier',
+                   'niveau du stuff',
+                   'tacle',
+                   'retrait PA',
+                   'retrait PM',
+                   'dmg pieges',
+                   'pui pieges',
+                   'renvoi dmg',
+                   'dmg neutre',
+                   'dmg terre',
+                   'dmg feu',
+                   'dmg eau',
+                   'dmg air',
+                   'res neutre',
+                   'res terre',
+                   'res feu',
+                   'res eau',
+                   'res air',
+                   'res% neutre',
+                   'res% terre',
+                   'res% feu',
+                   'res% eau',
+                   'res% air',
+                   'dmg melee',
+                   'dmg distance',
+                   'dmg armes',
+                   'dmg sorts',
+                   'dmg critique',
+                   'dmg poussee',
+                   'res melee',
+                   'res distance',
+                   'res armes',
+                   'res sorts',
+                   'res critiques',
+                   'res poussee'])
 
         progress = 0
         for u in users:
@@ -142,6 +143,7 @@ class Crawler:
                     WebDriverWait(self.__pages_browser, 10).until(
                         EC.presence_of_element_located((By.CLASS_NAME, 'stuff-card')))
                 except TimeoutException:
+                    print('timeout')
                     break
 
                 page_results = self.__pages_browser.find_elements_by_class_name('stuff-card')
@@ -167,22 +169,27 @@ class Crawler:
                     name = res.find_element_by_class_name('title').text
                     url = res.find_element_by_class_name('link').get_attribute('href')
 
-                    self.__stuff_browser.get(url)
-                    try:
-                        WebDriverWait(self.__stuff_browser, 10).until(
-                            EC.presence_of_element_located((By.CLASS_NAME, 'stats-main')))
-                    except TimeoutException:
-                        break
+                    stats = []
+                    if get_stats:
+                        self.__stuff_browser.get(url)
+                        try:
+                            WebDriverWait(self.__stuff_browser, 10).until(
+                                EC.presence_of_element_located((By.CLASS_NAME, 'stats-main')))
+                        except TimeoutException:
+                            break
 
-                    stats = [int(i.text.replace('%', '')) for i in
-                             self.__stuff_browser.find_elements_by_class_name('number') if i.text != '']
+                        stats = [int(i.text.replace('%', '')) for i in
+                                 self.__stuff_browser.find_elements_by_class_name('number') if i.text != '']
 
                     ws.append([name, url, views] + [items_str] + stats)
 
                 page += 1
+                if (len(self.__pages_browser.find_elements_by_class_name('pagination')) == 0
+                        or str(page) not in self.__pages_browser.find_element_by_class_name('pagination').text):
+                    break
 
             progress += 1
-            print('Scanned users: ' + str(progress) + '/' + str(len(users)))
+            print('Scanned users: ' + str(progress) + '/' + str(len(users)) + ' ' + str(datetime.datetime.now()))
 
         # convert urls to clickable hyperlinks
         for row in ws.iter_rows():
