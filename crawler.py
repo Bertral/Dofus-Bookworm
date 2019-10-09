@@ -10,6 +10,7 @@ from selenium.webdriver.common.by import By
 import platform
 import re
 import datetime
+import pickle
 
 # set up driver path
 print("System platform :", platform.system())
@@ -43,101 +44,57 @@ class Crawler:
         users_url = '/fr/communaute/membres?page='
         page = 1
 
-        users = []
+        if os.path.exists('./users.pkl'):
+            print('userlist found, loading from file')
+            with open('./users.pkl', 'rb') as f:
+                users = pickle.load(f)
+        else:
+            users = []
+            # get all users with at least 1 character
+            while True:
+                self.__pages_browser.get(root_url + users_url + str(page))
+                try:
+                    WebDriverWait(self.__pages_browser, 30).until(
+                        EC.presence_of_element_located((By.CLASS_NAME, 'user-card')))
+                except TimeoutException:
+                    print('timeout')
+                    break
 
-        # get all users with at least 1 character
-        while True:
-            self.__pages_browser.get(root_url + users_url + str(page))
-            try:
-                WebDriverWait(self.__pages_browser, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'user-card')))
-            except TimeoutException:
-                break
+                page_results = self.__pages_browser.find_elements_by_class_name('user-card')
 
-            page_results = self.__pages_browser.find_elements_by_class_name('user-card')
+                for res in page_results:
+                    n_chars = int(res.find_elements_by_class_name('pt-2')[-1].text)
+                    if n_chars > 0:
+                        url = res.find_element_by_class_name('link').get_attribute('href').replace('profil',
+                                                                                                   'equipements')
+                        users.append(url)
 
-            for res in page_results:
-                n_chars = int(res.find_elements_by_class_name('pt-2')[-1].text)
-                if n_chars > 0:
-                    url = res.find_element_by_class_name('link').get_attribute('href').replace('profil', 'equipements')
-                    users.append(url)
+                    if 0 < user_limit <= len(users):
+                        break
 
+                print('Discovered users:', len(users))
                 if 0 < user_limit <= len(users):
                     break
 
-            print('Discovered users:', len(users))
-            if 0 < user_limit <= len(users):
-                break
+                page += 1
 
-            page += 1
+            with open('./users.pkl', 'wb') as f:
+                pickle.dump(users, f)
 
         # get all stuffs from users
-        wb = openpyxl.Workbook()
-        ws = wb.active
 
-        ws.append(['name', 'url', 'views', 'items',
-                   'points de vie',
-                   'PA',
-                   'PM',
-                   'PO',
-                   'initiative',
-                   'invocation',
-                   'prospection',
-                   'critique',
-                   'soin',
-                   'vitalite',
-                   'sagesse',
-                   'force',
-                   'intelligence',
-                   'chance',
-                   'agilite',
-                   'puissance',
-                   'fuite',
-                   'esquive PA',
-                   'esquive PM',
-                   'pods',
-                   'bouclier',
-                   'niveau du stuff',
-                   'tacle',
-                   'retrait PA',
-                   'retrait PM',
-                   'dmg pieges',
-                   'pui pieges',
-                   'renvoi dmg',
-                   'dmg neutre',
-                   'dmg terre',
-                   'dmg feu',
-                   'dmg eau',
-                   'dmg air',
-                   'res neutre',
-                   'res terre',
-                   'res feu',
-                   'res eau',
-                   'res air',
-                   'res% neutre',
-                   'res% terre',
-                   'res% feu',
-                   'res% eau',
-                   'res% air',
-                   'dmg melee',
-                   'dmg distance',
-                   'dmg armes',
-                   'dmg sorts',
-                   'dmg critique',
-                   'dmg poussee',
-                   'res melee',
-                   'res distance',
-                   'res armes',
-                   'res sorts',
-                   'res critiques',
-                   'res poussee'])
+        progress = {'user': 0, 'stuffs': []}
+        if os.path.exists('./progress.pkl'):
+            print('loading saved progress')
+            with open('./progress.pkl', 'rb') as f:
+                progress = pickle.load(f)
 
-        progress = 0
-        for u in users:
+        for u in range(progress['user'], len(users)):
+            progress['user'] = u
             page = 1
 
             while True:
-                self.__pages_browser.get(u + '?page=' + str(page))
+                self.__pages_browser.get(users[u] + '?page=' + str(page))
 
                 try:
                     WebDriverWait(self.__pages_browser, 10).until(
@@ -181,22 +138,86 @@ class Crawler:
                         stats = [int(i.text.replace('%', '')) for i in
                                  self.__stuff_browser.find_elements_by_class_name('number') if i.text != '']
 
-                    ws.append([name, url, views] + [items_str] + stats)
+                    progress['stuffs'].append(
+                        [name, '=HYPERLINK("{}", "{}")'.format(url, "link"), views] + [items_str] + stats)
 
                 page += 1
                 if (len(self.__pages_browser.find_elements_by_class_name('pagination')) == 0
                         or str(page) not in self.__pages_browser.find_element_by_class_name('pagination').text):
                     break
 
-            progress += 1
-            print('Scanned users: ' + str(progress) + '/' + str(len(users)) + ' ' + str(datetime.datetime.now()))
+            with open('./progress.pkl', 'wb') as f:
+                pickle.dump(progress, f)
 
-            # convert urls to clickable hyperlinks
-            for row in ws.iter_rows():
-                for cell in row:
-                    if str(cell.value).startswith('https://'):
-                        cell.hyperlink = cell.value
+            print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' ' + str(datetime.datetime.now()))
 
-            if os.path.exists(filename):
-                os.remove(filename)
-            wb.save(filename)
+            if u % 100 == 0 or u == len(users) - 1:
+                print('Exporting to xlsx')
+                wb = openpyxl.Workbook(write_only=True)
+                ws = wb.create_sheet()
+
+                ws.append(['name', 'url', 'views', 'items',
+                           'points de vie',
+                           'PA',
+                           'PM',
+                           'PO',
+                           'initiative',
+                           'invocation',
+                           'prospection',
+                           'critique',
+                           'soin',
+                           'vitalite',
+                           'sagesse',
+                           'force',
+                           'intelligence',
+                           'chance',
+                           'agilite',
+                           'puissance',
+                           'fuite',
+                           'esquive PA',
+                           'esquive PM',
+                           'pods',
+                           'bouclier',
+                           'niveau du stuff',
+                           'tacle',
+                           'retrait PA',
+                           'retrait PM',
+                           'dmg pieges',
+                           'pui pieges',
+                           'renvoi dmg',
+                           'dmg neutre',
+                           'dmg terre',
+                           'dmg feu',
+                           'dmg eau',
+                           'dmg air',
+                           'res neutre',
+                           'res terre',
+                           'res feu',
+                           'res eau',
+                           'res air',
+                           'res% neutre',
+                           'res% terre',
+                           'res% feu',
+                           'res% eau',
+                           'res% air',
+                           'dmg melee',
+                           'dmg distance',
+                           'dmg armes',
+                           'dmg sorts',
+                           'dmg critique',
+                           'dmg poussee',
+                           'res melee',
+                           'res distance',
+                           'res armes',
+                           'res sorts',
+                           'res critiques',
+                           'res poussee'])
+
+                for row in progress['stuffs']:
+                    ws.append(row)
+
+                if os.path.exists(filename):
+                    os.remove(filename)
+                wb.save(filename)
+
+                print('Export done')
