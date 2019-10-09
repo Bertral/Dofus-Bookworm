@@ -191,12 +191,12 @@ class Crawler:
             progress += 1
             print('Scanned users: ' + str(progress) + '/' + str(len(users)) + ' ' + str(datetime.datetime.now()))
 
-        # convert urls to clickable hyperlinks
-        for row in ws.iter_rows():
-            for cell in row:
-                if str(cell.value).startswith('https://'):
-                    cell.hyperlink = cell.value
+            # convert urls to clickable hyperlinks
+            for row in ws.iter_rows():
+                for cell in row:
+                    if str(cell.value).startswith('https://'):
+                        cell.hyperlink = cell.value
 
-        if os.path.exists(filename):
-            os.remove(filename)
-        wb.save(filename)
+            if os.path.exists(filename):
+                os.remove(filename)
+            wb.save(filename)
