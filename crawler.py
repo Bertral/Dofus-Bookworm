@@ -152,12 +152,14 @@ class Crawler:
                         or str(page) not in self.__pages_browser.find_element_by_class_name('pagination').text):
                     break
 
-            with open('./progress.pkl', 'wb') as f:
-                pickle.dump(progress, f)
-
             print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' - ' + str(datetime.datetime.now()))
 
-            if u % 100 == 0 or u == len(users) - 1:
+            if u % 20 == 0 or u == len(users) - 1:
+                print('Exporting to pkl')
+                with open('./progress.pkl', 'wb') as f:
+                    pickle.dump(progress, f)
+                print('Export done')
+
                 print('Exporting to xlsx')
                 wb = openpyxl.Workbook(write_only=True)
                 ws = wb.create_sheet()
