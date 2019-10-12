@@ -12,6 +12,6 @@ The process is as follows :
 
 I commit a result file whenever I make progress on it.
 
-Google Chrome needs to be installed on your machine, for this script to work.
+Google Chrome needs to be installed on your machine for this script to work.
 
 As usual, python package requirements can be installed with ```pip install -r requirements.txt```.
