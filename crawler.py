@@ -54,11 +54,17 @@ class Crawler:
             while True:
                 self.__pages_browser.get(root_url + users_url + str(page))
                 try:
-                    WebDriverWait(self.__pages_browser, 30).until(
+                    WebDriverWait(self.__pages_browser, 60).until(
                         EC.presence_of_element_located((By.CLASS_NAME, 'user-card')))
                 except TimeoutException:
                     print('timeout')
-                    break
+                    self.__pages_browser.get(root_url + users_url + str(page))
+                    try:
+                        WebDriverWait(self.__pages_browser, 60).until(
+                            EC.presence_of_element_located((By.CLASS_NAME, 'user-card')))
+                    except TimeoutException:
+                        print('timeout')
+                        break
 
                 page_results = self.__pages_browser.find_elements_by_class_name('user-card')
 
@@ -72,14 +78,14 @@ class Crawler:
                     if 0 < user_limit <= len(users):
                         break
 
-                print('Discovered users:', len(users))
+                print('Discovered users: ' + str(len(users)) + ' - ' + str(datetime.datetime.now()))
                 if 0 < user_limit <= len(users):
                     break
 
                 page += 1
 
-            with open('./users.pkl', 'wb') as f:
-                pickle.dump(users, f)
+                with open('./users.pkl', 'wb') as f:
+                    pickle.dump(users, f)
 
         # get all stuffs from users
 
@@ -149,7 +155,7 @@ class Crawler:
             with open('./progress.pkl', 'wb') as f:
                 pickle.dump(progress, f)
 
-            print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' ' + str(datetime.datetime.now()))
+            print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' - ' + str(datetime.datetime.now()))
 
             if u % 100 == 0 or u == len(users) - 1:
                 print('Exporting to xlsx')
