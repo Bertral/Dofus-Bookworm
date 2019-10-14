@@ -96,7 +96,6 @@ class Crawler:
                 progress = pickle.load(f)
 
         for u in range(progress['user'], len(users)):
-            progress['user'] = u
             page = 1
 
             while True:
@@ -152,6 +151,7 @@ class Crawler:
                         or str(page) not in self.__pages_browser.find_element_by_class_name('pagination').text):
                     break
 
+            progress['user'] = u + 1
             print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' - ' + str(datetime.datetime.now()))
 
             if u % 20 == 0 or u == len(users) - 1:
