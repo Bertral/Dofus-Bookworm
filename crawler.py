@@ -154,7 +154,7 @@ class Crawler:
             progress['user'] = u + 1
             print('Scanned users: ' + str(u) + '/' + str(len(users)) + ' - ' + str(datetime.datetime.now()))
 
-            if u % 20 == 0 or u == len(users) - 1:
+            if u % 100 == 0 or u == len(users) - 1:
                 print('Exporting to pkl')
                 with open('./progress.pkl', 'wb') as f:
                     pickle.dump(progress, f)
